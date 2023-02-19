@@ -45,8 +45,10 @@ function mainMenu() {
         // "Update employee role",
         // "View all roles",
         // "Add role",
-        // "View all departments",
-        // "Add department",
+        {
+          name: "Add department",
+          value: "Add department",
+        },
         {
           name: "Quit",
           value: "QUIT",
@@ -77,9 +79,9 @@ function mainMenu() {
       // case "Add role":
       //   viewRoles();
       //   break;
-      // case "Add department":
-      // addDepartment();
-      //   break;
+      case "Add department":
+        addDepartment();
+        break;
       case "QUIT":
         quit();
         break;
@@ -88,69 +90,136 @@ function mainMenu() {
     }
   });
 }
+
+// const arrayOfRoleChoices = () => {
+//   db.query(`SELECT id AS value, title FROM role;`, function (err, results) {
+//     let roleChoices = results.map(({ title }) => title);
+//     prompt([
+//         {
+//             type: "list",
+//             message: `who is the employee’s manager?`,
+//             name: "newEmployeeManager",
+//             choices: roleChoices,
+//           },
+//     ]).then((res) => {
+//         console.log(res);
+//     })
+//   });
+// };
+// arrayOfRoleChoices();
+
+// const roleChoices = async () => {
+//     const roleQuery = `SELECT id AS value, title FROM role;`;
+//     const roles = await db.query(roleQuery);
+//     return roles[0]
+//    await db.query(`SELECT id AS value, title FROM role;`,
+//     function (err, results) {
+//         let arrayOfRoleChoices = results.map(({ title }) => title)
+//     //    console.log(arrayOfRoleChoices)
+//         return results
+//       },
+//       console.log(results)
+//     );
+// };
+// function testAddEmployeeRole() {
+//   prompt([
+//     {
+//       type: "list",
+//       message: `who is the employee’s manager?`,
+//       name: "newEmployeeManager",
+//       choices: arrayOfRoleChoices,
+//     },
+//   ]).then((res) => {
+//     console.log(res);
+//   });
+// }
+// testAddEmployeeRole();
+
 function viewEmployees() {
   db.query(
     `SELECT employee.id AS id, employee.first_name, employee.last_name, role.title, department.name AS department, role.salary, CONCAT(manager.first_name,' ', manager.last_name) AS manager
-    FROM department
-    INNER JOIN role ON role.id = department.id
-    LEFT JOIN employee ON employee.id = role.id
+    FROM employee
+    LEFT JOIN role ON employee.role_id = role.id
+    LEFT JOIN department ON role.department_id = department.id
     LEFT JOIN employee manager ON employee.manager_id = manager.id;`,
     function (err, results) {
-        console.table(results);
+      console.table(results);
     }
   );
   return welcome();
 }
 function viewDepartments() {
-    db.query(
-        `SELECT department.id AS id, department.name AS name FROM department;`,
-        function (err, results) {
-          console.table(results);
-        }
-      );
-      return welcome();
+  db.query(
+    `SELECT department.id AS id, department.name AS name FROM department;`,
+    function (err, results) {
+      console.table(results);
+    }
+  );
+  return welcome();
 }
 function addEmployee() {
-  console.log("Added Employee");
-  prompt([
-    {
-      type: "input",
-      message: `What is employee’s first name?`,
-      name: "firstNameChoice",
-      default: "John",
-    },
-    {
-      type: "input",
-      message: `What is employee’s lasst name?`,
-      name: "lastNameChoice",
-      default: "Doe",
-    },
-    {
-      type: "list",
-      message: `What is employee’s role?`,
-      name: "newEmployeeRole",
-      choices: ["choice 1", "choice 2"],
-    },
-    {
-      type: "list",
-      message: `who is the employee’s manager?`,
-      name: "newEmployeeManager",
-      choices: ["choice 1", "choice 2"],
-    },
-  ]).then((res) => {
-    console.log("inside then");
-    var roleId = 0;
-    console.log(res);
+  db.query(`SELECT id AS value, title FROM role;`, function (err, results) {
+    // console.log(results);
+    let roleChoices = results.map(getCombinedRole);
+    function getCombinedRole(item) {
+        return [item.value, item.title].join(" ");
+    };
+    // let roleValue = results.map(({ value }) => value);
     db.query(
-      `INSERT INTO employee (first_name, last_name, role_id, manager_id)
-    VALUES (${res.firstNameChoices},${res.lastNameChoices}, ${roleId})`,
-      function (err, res) {
-        console.log(res);
+      `SELECT id AS value, CONCAT(employee.first_name,' ', employee.last_name) AS manager FROM employee;`,
+      function (err, managerResults) {
+        let managerChoice = managerResults.map(getCombinedManager);
+        function getCombinedManager(item) {
+            return [item.value, item.manager].join(" ");
+        };
+
+        prompt([
+          {
+            type: "input",
+            message: `What is employee’s first name?`,
+            name: "firstNameChoice",
+            default: "John",
+          },
+          {
+            type: "input",
+            message: `What is employee’s lasst name?`,
+            name: "lastNameChoice",
+            default: "Doe",
+          },
+          {
+            type: "list",
+            message: `What is employee’s role?`,
+            name: "newEmployeeRole",
+            choices: roleChoices,
+          },
+          {
+            type: "list",
+            message: `who is the employee’s manager?`,
+            name: "newEmployeeManager",
+            choices: managerChoice,
+          },
+        ]).then((res) => {
+          var r = /\d+/;
+          var s = res.newEmployeeRole;
+          var m = res.newEmployeeManager;
+          var roleId = s.match(r)[0];
+          var managerId = m.match(r)[0];
+          console.log(roleId);
+          console.log(res.firstNameChoice);
+          console.log(managerId + 'manager id number');
+          db.query(
+            `INSERT INTO employee (first_name, last_name, role_id, manager_id)
+    VALUES ("${res.firstNameChoice}","${res.lastNameChoice}", ${roleId}, ${managerId});`,
+            function (err, res) {
+              console.log(res);
+            }
+          );
+          return welcome();
+        });
+        //   return welcome();
       }
     );
-    return welcome();
   });
-  //   return welcome();
 }
 function viewRoles() {
   db.query(
@@ -163,6 +232,23 @@ function viewRoles() {
   );
   return welcome();
 }
+function addDepartment() {
+  prompt([
+    {
+      type: "input",
+      message: `what is the name of the department?`,
+      name: "departmentName",
+      default: "Human Resources",
+    },
+  ]).then((response) => {
+    db.query(
+      `INSERT INTO department (name)
+    VALUES ("${response.departmentName}")`,
+      function (err, res) {}
+    );
+    return viewDepartments();
+  });
+}
 function quit() {
   console.log("goodbye");
   return process.exit();
@@ -170,7 +256,7 @@ function quit() {
 // The welcome funciton runs when the user starts the server
 // it writes out a fun title and runs the mainMenu prompt fuction
 async function welcome() {
-    console.clear();
+  //   console.clear();
   const msg = "Employee Manager";
   await figlet(msg, (err, data) => {
     console.log(gradient.pastel.multiline(data));
@@ -180,6 +266,7 @@ async function welcome() {
   await mainMenu();
 }
 welcome();
+
 // const addEmployeeQuestions = [
 //   {
 //     type: "input",
